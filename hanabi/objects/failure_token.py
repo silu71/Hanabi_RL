@@ -6,7 +6,7 @@ class FailureTokensOnField:
     def add_token(self):
         if self.num_failure_tokens > self.max_num_failure_tokens:
             raise RuntimeError(
-                f"The number of failure tokens exceed the max number: "
+                f"The rank of failure tokens exceed the max rank: "
                 f"{self.num_failure_tokens} > {self.max_num_failure_tokens}"
             )
         self.num_failure_tokens += 1

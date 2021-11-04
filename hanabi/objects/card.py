@@ -10,7 +10,7 @@ class Color(Enum):
     WHITE = auto()
 
 
-class Number(Enum):
+class Rank(Enum):
     ONE = 1
     TWO = 2
     THREE = 3
@@ -21,4 +21,4 @@ class Number(Enum):
 @dataclass
 class Card:
     color: Color
-    number: Number
+    rank: Rank
