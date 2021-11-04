@@ -1,9 +1,8 @@
 from typing import List, Optional
 from dataclasses import dataclass
-from hanabi.objects import Card, Deck, Color, Rank
-from hanabi.hanabi_field import HanabiField
 
-from .actions import Action
+from hanabi.objects import Card, Deck, Color, Rank
+from hanabi.actions import Action
 
 
 @dataclass
@@ -47,5 +46,5 @@ class Player:
             if card.rank == rank:
                 observation.rank_hint = rank
 
-    def choose_action(self, valid_action: List[Action]) -> Action:
+    def choose_action(self, valid_actions: List[Action]) -> Action:
         raise NotImplementedError

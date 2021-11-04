@@ -13,3 +13,6 @@ class FailureTokensOnField:
 
     def is_failed(self) -> bool:
         return self.num_failure_tokens >= self.max_num_failure_tokens
+
+    def __len__(self):
+        return self.num_failure_tokens

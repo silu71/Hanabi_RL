@@ -8,7 +8,7 @@ from hanabi.objects import (
     Rank,
 )
 from hanabi.hanabi_field import HanabiField
-from .player import Player
+from hanabi.players import HumanPlayer, RandomPlayer
 from .actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
 
 
@@ -16,7 +16,7 @@ class GameField:
     def __init__(self, num_players: int):
 
         self.deck = Deck()
-        self.players = [Player(index) for index in range(num_players)]
+        self.players = [HumanPlayer(index) for index in range(num_players)]
         self.failure_tokens = FailureTokensOnField()
         self.hint_tokens = HintTokensOnField(
             initial_num_hint_tokens=8, max_num_hint_tokens=8
@@ -68,8 +68,10 @@ class GameField:
 
         return False
 
-    def game(self):
+    def start_game(self):
         self.distribute_cards()
+
+        print(self)
 
         max_num_rounds = (len(self.deck) + len(self.hint_tokens) + 1) // len(
             self.players
@@ -93,12 +95,14 @@ class GameField:
                     else:
                         self.failure_tokens.add_token()
                         self.discard_pile.append(card)
+                    player.draw_card(self.deck)
 
                 elif isinstance(action, GetHintToken):
                     assert self.hint_tokens.is_able_to_add_token()
                     discarded_card = player.use_card(action.discard_card_index)
                     self.discard_pile.append(discarded_card)
                     self.hint_tokens.add_token()
+                    player.draw_card(self.deck)
                 elif isinstance(action, GiveColorHint):
                     assert action.player_index != current_player_id
                     assert self.hint_tokens.is_able_to_use_token()
@@ -109,9 +113,33 @@ class GameField:
                     assert self.hint_tokens.is_able_to_use_token()
                     self.hint_tokens.use_token()
                     self.players[action.player_index].get_rank_hint(action.rank)
+                else:
+                    raise RuntimeError(f"Invalid action: {action}")
 
                 self.turn += 1
                 self.turn_since_deck_is_empty += int(self.deck.is_empty())
 
+                print(self)
+
                 if self.is_terminal():
                     return self.hanabi_field.get_score()
+
+    def __str__(self):
+        string = ""
+        string += "==============================\n"
+        string += f"Deck: {len(self.deck)}" + "\n"
+        string += f"Hint Tokens: [" + "○" * len(self.hint_tokens) + "]\n"
+        string += f"Failure Tokens: [" + "●" * len(self.failure_tokens) + "]\n"
+        string += "\n"
+
+        string += "Hanabi Field:" + "\n"
+        string += str(self.hanabi_field) + "\n"
+
+        string += "Hand: \n"
+        for player in self.players:
+            string += f"Player {player.index}: \n"
+            string += str([str(c) for c in player.hand]) + "\n"
+            string += "\n"
+        string += "==============================\n"
+
+        return string
