@@ -1,6 +1,7 @@
 from typing import Optional
 from dataclasses import dataclass
 from enum import Enum, auto
+from functools import total_ordering
 
 
 class InvalidCardError(Exception):
@@ -14,7 +15,11 @@ class Color(Enum):
     GREEN = 3
     WHITE = 4
 
+    def __str__(self):
+        return self.name[0]
 
+
+@total_ordering
 class Rank(Enum):
     EMPTY = 0
     ONE = 1
@@ -29,6 +34,18 @@ class Rank(Enum):
             return None
         return list(Rank)[self.value + 1]
 
+    def __eq__(self, other):
+        return self.value == other.value
+
+    def __lt__(self, other):
+        return self.value > other.value
+
+    def __hash__(self):
+        return hash(self.value)
+
+    def __str__(self):
+        return str(self.value)
+
 
 @dataclass
 class Card:
@@ -36,4 +53,4 @@ class Card:
     rank: Rank
 
     def __str__(self):
-        return f"{self.color.value}{self.rank.value}"
+        return f"{self.color}{self.rank}"

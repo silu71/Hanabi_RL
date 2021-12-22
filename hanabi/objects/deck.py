@@ -2,18 +2,19 @@ from typing import List
 import random
 from .card import Card, Color, Rank
 
+DEFAULT_NUM_CARDS = {Rank.ONE: 3, Rank.TWO: 2, Rank.THREE: 3, Rank.FOUR: 2, Rank.FIVE: 2}
+
 
 class Deck:
     def __init__(self, max_rank: int = 5, colors: List[Color] = None):
         self.cards = []
 
         colors = colors or list(Color)
+        ranks = [Rank.ONE, Rank.TWO, Rank.THREE, Rank.FOUR, Rank.FIVE]
         for color in colors:
 
-            for rank, num_cards in [(Rank.ONE, 3), (Rank.TWO, 2), (Rank.THREE, 2), (Rank.FOUR, 2), (Rank.FIVE, 1)][
-                :max_rank
-            ]:
-                self.cards += [Card(color=color, rank=rank) for _ in range(num_cards)]
+            for rank in ranks[:max_rank]:
+                self.cards += [Card(color=color, rank=rank) for _ in range(DEFAULT_NUM_CARDS[rank])]
 
         random.shuffle(self.cards)
 

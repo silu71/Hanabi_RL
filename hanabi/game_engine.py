@@ -30,6 +30,7 @@ class FullState:
     num_failure_tokens: int
     num_hint_tokens: int
     tower_ranks: Dict[Color, Rank]
+    discard_pile: List[Card]
     current_player_id: int
 
 
@@ -140,6 +141,7 @@ class GameEngine:
             num_failure_tokens=self.failure_tokens.num_failure_tokens,
             num_hint_tokens=len(self.hint_tokens),
             tower_ranks={color: hanabi_tower.rank for color, hanabi_tower in self.hanabi_field.hanabi_towers.items()},
+            discard_pile=self.discard_pile,
             current_player_id=self.current_player_id,
         )
 
@@ -156,6 +158,7 @@ class GameEngine:
             num_failure_tokens=full_states.num_failure_tokens,
             num_hint_tokens=full_states.num_hint_tokens,
             tower_ranks=full_states.tower_ranks,
+            discard_pile=full_states.discard_pile,
             current_player_id=full_states.current_player_id,
         )
 

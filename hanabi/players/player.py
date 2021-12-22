@@ -20,6 +20,7 @@ class PlayerObservation:
     num_failure_tokens: int
     num_hint_tokens: int
     tower_ranks: Dict[Color, Rank]
+    discard_pile: List[Card]
     current_player_id: int
 
 
