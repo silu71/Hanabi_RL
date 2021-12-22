@@ -7,10 +7,8 @@ from hanabi.actions import Action, GetHintToken, PlayCard, GiveColorHint
 
 
 def find_playable_card_for_other(observation: PlayerObservation) -> Tuple[int, Card]:
-    num_players = len(observation.other_player_hands) + 1
     playable_cards = [Card(color, rank.next_rank) for color, rank in observation.tower_ranks.items()]
-    for other_player_id, hands in enumerate(observation.other_player_hands, start=observation.current_player_id + 1):
-        other_player_id = other_player_id % num_players
+    for other_player_id, hands in enumerate(observation.other_player_hands):
         for playable_card in playable_cards:
             if playable_card in hands:
                 return other_player_id, playable_card

@@ -8,11 +8,11 @@ class InvalidCardError(Exception):
 
 
 class Color(Enum):
-    RED = "R"
-    BLUE = "B"
-    YELLOW = "Y"
-    GREEN = "G"
-    WHITE = "W"
+    RED = 0
+    BLUE = 1
+    YELLOW = 2
+    GREEN = 3
+    WHITE = 4
 
 
 class Rank(Enum):

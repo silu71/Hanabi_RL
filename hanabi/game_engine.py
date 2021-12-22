@@ -33,12 +33,21 @@ class FullState:
     current_player_id: int
 
 
+def abs_to_rel_player_index(current_player_index: int, other_player_index: int, num_players: int) -> int:
+    return (other_player_index - current_player_index - 1) % num_players
+
+
+def rel_to_abs_player_index(current_player_index: int, relative_player_index: int, num_players: int) -> int:
+    return (current_player_index + relative_player_index + 1) % num_players
+
+
 class GameEngine:
     def __init__(
         self,
         num_initial_cards: int = 5,
         num_initial_hint_tokens: int = 8,
         num_max_hint_tokens: int = 8,
+        max_num_failure_tokens: int = 3,
         max_rank: int = 5,
         num_colors: int = 5,
     ):
@@ -51,9 +60,10 @@ class GameEngine:
 
         colors = list(Color)[:num_colors]
         self.deck = Deck(max_rank=max_rank, colors=colors)
+        self.max_deck_size = len(self.deck)
         self.hanabi_field = HanabiField(max_rank=max_rank, colors=colors)
 
-        self.failure_tokens = FailureTokensOnField()
+        self.failure_tokens = FailureTokensOnField(max_num_failure_tokens=max_num_failure_tokens)
         self.hint_tokens = HintTokensOnField(
             initial_num_hint_tokens=num_initial_hint_tokens, max_num_hint_tokens=num_max_hint_tokens
         )
@@ -65,6 +75,10 @@ class GameEngine:
 
         self.players: List[Player] = None
         self.current_player_id = None
+
+    @property
+    def current_player(self) -> Player:
+        return self.players[self.current_player_id]
 
     def reset(self):
         self.__init__(
@@ -80,23 +94,29 @@ class GameEngine:
             for player in self.players:
                 player.draw_card(self.deck.get_card())
 
-    def get_valid_actions(self, player: Player) -> List[Action]:
-        valid_actions = [PlayCard(card_index) for card_index in range(len(player.hand))]
+    def get_valid_actions(self, num_current_player_cards: int, current_player_index: int) -> List[Action]:
+        valid_actions = [PlayCard(card_index) for card_index in range(num_current_player_cards)]
 
-        if self.hint_tokens.is_able_to_add_token() and len(player.hand) > 0:
-            valid_actions += [GetHintToken(card_index) for card_index in range(len(player.hand))]
+        if self.hint_tokens.is_able_to_add_token() and num_current_player_cards > 0:
+            valid_actions += [GetHintToken(card_index) for card_index in range(num_current_player_cards)]
 
         if self.hint_tokens.is_able_to_use_token():
 
             for other_index, other_player in enumerate(self.players):
-                if other_player == player:
+                if other_index == current_player_index:
                     continue
+                relative_other_index = abs_to_rel_player_index(
+                    current_player_index=current_player_index,
+                    other_player_index=other_index,
+                    num_players=len(self.players),
+                )
+
                 for color in list(Color):
                     if other_player.has_color(color):
-                        valid_actions.append(GiveColorHint(player_index=other_index, color=color))
+                        valid_actions.append(GiveColorHint(player_index=relative_other_index, color=color))
                 for rank in list(Rank):
                     if other_player.has_rank(rank):
-                        valid_actions.append(GiveRankHint(player_index=other_index, rank=rank))
+                        valid_actions.append(GiveRankHint(player_index=relative_other_index, rank=rank))
 
         return valid_actions
 
@@ -139,7 +159,14 @@ class GameEngine:
             current_player_id=full_states.current_player_id,
         )
 
+    def get_current_valid_actions(self) -> List[Action]:
+        current_player = self.players[self.current_player_id]
+        return self.get_valid_actions(
+            num_current_player_cards=len(current_player.hand), current_player_index=self.current_player_id
+        )
+
     def receive_action(self, player: Player, action: Action):
+
         if isinstance(action, PlayCard):
             card = player.use_card(action.played_card_index)
             if self.hanabi_field.is_able_to_add(card):
@@ -163,22 +190,24 @@ class GameEngine:
                 player.draw_card(self.deck.get_card())
 
         elif isinstance(action, GiveColorHint):
-            if action.player_index == self.current_player_id:
-                raise InvalidActionError("You cannot give the hint to yourself.")
-
             if not self.hint_tokens.is_able_to_use_token():
                 raise InvalidActionError("The number of hint tokens is empty.")
+            other_player_index = rel_to_abs_player_index(
+                self.current_player_id, relative_player_index=action.player_index, num_players=len(self.players)
+            )
 
             self.hint_tokens.use_token()
-            self.players[action.player_index].get_color_hint(action.color)
+            self.players[other_player_index].get_color_hint(action.color)
 
         elif isinstance(action, GiveRankHint):
-            if action.player_index == self.current_player_id:
-                raise InvalidActionError("You cannot give the hint to yourself.")
             if not self.hint_tokens.is_able_to_use_token():
                 raise InvalidActionError("The number of hint tokens is empty.")
+            other_player_index = rel_to_abs_player_index(
+                self.current_player_id, relative_player_index=action.player_index, num_players=len(self.players)
+            )
+
             self.hint_tokens.use_token()
-            self.players[action.player_index].get_rank_hint(action.rank)
+            self.players[other_player_index].get_rank_hint(action.rank)
         else:
             raise InvalidActionError(f"Invalid action: {action}")
 
@@ -200,7 +229,9 @@ class GameEngine:
             for current_player_id, player in enumerate(self.players):
                 self.current_player_id = current_player_id
 
-                valid_actions = self.get_valid_actions(player)
+                valid_actions = self.get_valid_actions(
+                    num_current_player_cards=len(player.hand), current_player_index=current_player_id
+                )
                 action = player.choose_action(valid_actions, self.get_current_player_observation())
                 logging.info(f"Player {current_player_id}'s action: {action}")
                 self.receive_action(player=player, action=action)
