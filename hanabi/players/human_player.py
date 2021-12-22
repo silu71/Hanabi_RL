@@ -1,11 +1,11 @@
 from typing import List
 from hanabi.actions import Action
 
-from .player import Player
+from .player import Player, PlayerObservation
 
 
 class HumanPlayer(Player):
-    def choose_action(self, valid_actions: List[Action]) -> Action:
+    def choose_action(self, valid_actions: List[Action], observation: PlayerObservation) -> Action:
         chosen_action = None
         print("Valid actions")
         print([str(a) for a in valid_actions])

@@ -1,3 +1,4 @@
+from typing import Optional
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -17,6 +18,12 @@ class Rank(Enum):
     THREE = 3
     FOUR = 4
     FIVE = 5
+
+    @property
+    def next_rank(self) -> Optional["Rank"]:
+        if self == Rank.FIVE:
+            return None
+        return list(Rank)[self.value + 1]
 
 
 @dataclass

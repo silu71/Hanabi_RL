@@ -2,11 +2,15 @@ from typing import Optional
 from hanabi.objects import Card, Color, Rank
 
 
-class ColorField:
+class HanabiTower:
     def __init__(self, color: Color, max_rank: Rank = Rank.FIVE):
         self.color = color
         self.cards = [Card(color, Rank.EMPTY)]
         self.max_rank = max_rank
+
+    @property
+    def rank(self) -> Rank:
+        return self.top_card.rank
 
     @property
     def top_card(self) -> Optional[Card]:

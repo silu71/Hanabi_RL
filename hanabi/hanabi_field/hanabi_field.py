@@ -1,35 +1,35 @@
 from typing import Dict
 from hanabi.objects import Card, Color
-from hanabi.hanabi_field.color_field import ColorField
+from hanabi.hanabi_field.hanabi_tower import HanabiTower
 
 
 class HanabiField:
     def __init__(self):
-        self.color_fields: Dict[Color, ColorField] = {
-            color: ColorField(color) for color in list(Color)
+        self.hanabi_towers: Dict[Color, HanabiTower] = {
+            color: HanabiTower(color) for color in list(Color)
         }
 
     def is_able_to_add(self, card: Card) -> bool:
-        return self.color_fields[card.color].is_able_to_add(card)
+        return self.hanabi_towers[card.color].is_able_to_add(card)
 
     def add_card(self, card: Card) -> bool:
-        self.color_fields[card.color].add_card(card)
-        return self.color_fields[card.color].is_completed()
+        self.hanabi_towers[card.color].add_card(card)
+        return self.hanabi_towers[card.color].is_completed()
 
     def is_completed(self) -> bool:
         completed_list = [
-            color_field.is_completed() for color_field in self.color_fields.values()
+            hanabi_tower.is_completed() for hanabi_tower in self.hanabi_towers.values()
         ]
         return all(completed_list)
 
     def get_score(self) -> int:
         total_score = 0
-        for color_field in self.color_fields.values():
-            total_score = color_field.top_card.rank.value
+        for hanabi_tower in self.hanabi_towers.values():
+            total_score += hanabi_tower.top_card.rank.value
         return total_score
 
     def __str__(self):
         string = ""
-        for color_field in self.color_fields.values():
-            string += str(color_field) + "\n"
+        for hanabi_tower in self.hanabi_towers.values():
+            string += str(hanabi_tower) + "\n"
         return string

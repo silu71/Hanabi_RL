@@ -12,7 +12,7 @@ class PlayCard(Action):
     played_card_index: int
 
     def __str__(self):
-        return f"Play{self.played_card_index}"
+        return f"PlayCard({self.played_card_index})"
 
 
 @dataclass
@@ -20,7 +20,7 @@ class GetHintToken(Action):
     discard_card_index: int
 
     def __str__(self):
-        return f"GetHint{self.discard_card_index}"
+        return f"GetHintToken({self.discard_card_index})"
 
 
 @dataclass
@@ -29,7 +29,7 @@ class GiveColorHint(Action):
     color: Color
 
     def __str__(self):
-        return f"ColorHintTo{self.player_index}For{self.color.value}"
+        return f"GiveColorHint({self.player_index}For{self.color.name})"
 
 
 @dataclass
@@ -38,4 +38,4 @@ class GiveRankHint(Action):
     rank: Rank
 
     def __str__(self):
-        return f"RankHintTo{self.player_index}For{self.rank.value}"
+        return f"RankHintTo({self.player_index}For{self.rank.name})"
