@@ -1,5 +1,5 @@
 from typing import Optional
-from hanabi.objects import Card, Color, Rank
+from hanabi.objects.card import Card, InvalidCardError, Color, Rank
 
 
 class HanabiTower:
@@ -18,11 +18,17 @@ class HanabiTower:
 
     def is_able_to_add(self, card: Card) -> bool:
 
+        if card.rank.value > self.max_rank.value:
+            raise InvalidCardError(
+                f"{Card} should not exist in this game setting where the max rank is {self.max_rank}."
+            )
+
         if self.color != card.color:
             return False
 
         if self.top_card.rank.value + 1 != card.rank.value:
             return False
+
         return True
 
     def add_card(self, card: Card):

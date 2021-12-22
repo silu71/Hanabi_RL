@@ -24,8 +24,7 @@ class PlayerObservation:
 
 
 class Player:
-    def __init__(self, index: int):
-        self.index = index
+    def __init__(self):
         self.hand: List[Card] = []
         self.card_hints: List[CardHint] = []
 

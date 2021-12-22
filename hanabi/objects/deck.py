@@ -1,17 +1,19 @@
+from typing import List
 import random
 from .card import Card, Color, Rank
 
 
 class Deck:
-    def __init__(self):
+    def __init__(self, max_rank: int = 5, colors: List[Color] = None):
         self.cards = []
 
-        for color in Color:
-            self.cards += [Card(color=color, rank=Rank.ONE) for _ in range(3)]
-            self.cards += [Card(color=color, rank=Rank.TWO) for _ in range(2)]
-            self.cards += [Card(color=color, rank=Rank.THREE) for _ in range(2)]
-            self.cards += [Card(color=color, rank=Rank.FOUR) for _ in range(2)]
-            self.cards += [Card(color=color, rank=Rank.FIVE) for _ in range(1)]
+        colors = colors or list(Color)
+        for color in colors:
+
+            for rank, num_cards in [(Rank.ONE, 3), (Rank.TWO, 2), (Rank.THREE, 2), (Rank.FOUR, 2), (Rank.FIVE, 1)][
+                :max_rank
+            ]:
+                self.cards += [Card(color=color, rank=rank) for _ in range(num_cards)]
 
         random.shuffle(self.cards)
 

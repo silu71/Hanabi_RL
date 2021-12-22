@@ -33,26 +33,50 @@ class FullState:
     current_player_id: int
 
 
-class GameField:
-    def __init__(self):
+class GameEngine:
+    def __init__(
+        self,
+        num_initial_cards: int = 5,
+        num_initial_hint_tokens: int = 8,
+        num_max_hint_tokens: int = 8,
+        max_rank: int = 5,
+        num_colors: int = 5,
+    ):
 
-        self.deck = Deck()
-        self.players: List[Player] = None
+        self.num_initial_cards = num_initial_cards
+        self.num_initial_hint_tokens = num_initial_hint_tokens
+        self.num_max_hint_tokens = num_max_hint_tokens
+        self.max_rank = max_rank
+        self.num_colors = num_colors
+
+        colors = list(Color)[:num_colors]
+        self.deck = Deck(max_rank=max_rank, colors=colors)
+        self.hanabi_field = HanabiField(max_rank=max_rank, colors=colors)
+
         self.failure_tokens = FailureTokensOnField()
-        self.hint_tokens = HintTokensOnField(initial_num_hint_tokens=8, max_num_hint_tokens=8)
-        self.hanabi_field = HanabiField()
+        self.hint_tokens = HintTokensOnField(
+            initial_num_hint_tokens=num_initial_hint_tokens, max_num_hint_tokens=num_max_hint_tokens
+        )
+
         self.discard_pile: List[Card] = []
 
         self.turn = 0
         self.turn_since_deck_is_empty = 0
 
+        self.players: List[Player] = None
         self.current_player_id = None
 
     def reset(self):
-        self.__init__()
+        self.__init__(
+            num_initial_cards=self.num_initial_cards,
+            num_initial_hint_tokens=self.num_initial_hint_tokens,
+            num_max_hint_tokens=self.num_max_hint_tokens,
+            max_rank=self.max_rank,
+            num_colors=self.num_colors,
+        )
 
-    def distribute_cards(self, num_initial_cards: int = 5):
-        for _ in range(num_initial_cards):
+    def distribute_cards(self):
+        for _ in range(self.num_initial_cards):
             for player in self.players:
                 player.draw_card(self.deck.get_card())
 
@@ -64,15 +88,15 @@ class GameField:
 
         if self.hint_tokens.is_able_to_use_token():
 
-            for other_player in self.players:
+            for other_index, other_player in enumerate(self.players):
                 if other_player == player:
                     continue
                 for color in list(Color):
                     if other_player.has_color(color):
-                        valid_actions.append(GiveColorHint(player_index=other_player.index, color=color))
+                        valid_actions.append(GiveColorHint(player_index=other_index, color=color))
                 for rank in list(Rank):
                     if other_player.has_rank(rank):
-                        valid_actions.append(GiveRankHint(player_index=other_player.index, rank=rank))
+                        valid_actions.append(GiveRankHint(player_index=other_index, rank=rank))
 
         return valid_actions
 
@@ -125,7 +149,8 @@ class GameField:
             else:
                 self.failure_tokens.add_token()
                 self.discard_pile.append(card)
-            player.draw_card(self.deck.get_card())
+            if not self.deck.is_empty():
+                player.draw_card(self.deck.get_card())
 
         elif isinstance(action, GetHintToken):
             if not self.hint_tokens.is_able_to_add_token():
@@ -134,7 +159,9 @@ class GameField:
             discarded_card = player.use_card(action.discard_card_index)
             self.discard_pile.append(discarded_card)
             self.hint_tokens.add_token()
-            player.draw_card(self.deck.get_card())
+            if not self.deck.is_empty():
+                player.draw_card(self.deck.get_card())
+
         elif isinstance(action, GiveColorHint):
             if action.player_index == self.current_player_id:
                 raise InvalidActionError("You cannot give the hint to yourself.")
@@ -144,6 +171,7 @@ class GameField:
 
             self.hint_tokens.use_token()
             self.players[action.player_index].get_color_hint(action.color)
+
         elif isinstance(action, GiveRankHint):
             if action.player_index == self.current_player_id:
                 raise InvalidActionError("You cannot give the hint to yourself.")
@@ -153,6 +181,9 @@ class GameField:
             self.players[action.player_index].get_rank_hint(action.rank)
         else:
             raise InvalidActionError(f"Invalid action: {action}")
+
+        self.turn += 1
+        self.turn_since_deck_is_empty += int(self.deck.is_empty())
 
     def setup_game(self, players: List[Player]):
         self.reset()
@@ -171,11 +202,8 @@ class GameField:
 
                 valid_actions = self.get_valid_actions(player)
                 action = player.choose_action(valid_actions, self.get_current_player_observation())
-                logging.info(f"Player {current_player_id}'s action:", action)
+                logging.info(f"Player {current_player_id}'s action: {action}")
                 self.receive_action(player=player, action=action)
-
-                self.turn += 1
-                self.turn_since_deck_is_empty += int(self.deck.is_empty())
 
                 logging.info(self)
 
@@ -194,8 +222,8 @@ class GameField:
         string += str(self.hanabi_field) + "\n"
 
         string += "Hand: \n"
-        for player in self.players:
-            string += f"Player {player.index}: \n"
+        for index, player in enumerate(self.players):
+            string += f"Player {index}: \n"
             string += str([str(c) for c in player.hand]) + "\n"
             string += "\n"
         string += "==============================\n"
