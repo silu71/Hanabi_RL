@@ -65,7 +65,7 @@ class ObservationEncoder:
         color_array = np.zeros(self.num_colors)
 
         if card.rank is not None:
-            color_array[card.rank.value] = 1
+            rank_array[card.rank.value - 1] = 1
 
         if card.color is not None:
             color_array[card.color.value] = 1
@@ -91,7 +91,7 @@ class ObservationEncoder:
             ]
         )
         assert len(obs_array) == self.encode_dim
-        assert (0 <= obs_array <= 1).all()
+        assert (0 <= obs_array).all() and (obs_array <= 1).all()
         return obs_array
 
 
@@ -233,12 +233,13 @@ class HanabiEnv(gym.Env):
 
         self.game_engine.receive_action(player=self.game_engine.current_player, action=action)
         obs = self.game_engine.get_current_player_observation()
+        obs_array = self.observation_encoder.encode(obs)
         done = self.game_engine.is_terminal()
         reward = 0
         if done:
             reward = self.game_engine.hanabi_field.get_score()
             self._game_is_done = True
-        return obs, reward, done, {}
+        return obs_array, reward, done, {}
 
     def render(self, mode="human"):
         pass
