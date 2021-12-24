@@ -145,6 +145,27 @@ class GameEngine:
             current_player_id=self.current_player_id,
         )
 
+    def get_all_players_observations(self) -> List[PlayerObservation]:
+        full_states = self.get_current_full_state()
+
+        observations = []
+        for i in range(len(self.players)):
+            observations.append(PlayerObservation(
+                deck_size=full_states.deck_size,
+                # Note that the index in this list is relative to current_player_id
+                other_player_hints=full_states.player_hints[i + 1 :] + full_states.player_hints[:i],
+                other_player_hands=full_states.player_hands[i + 1 :] + full_states.player_hands[:i],
+                current_player_hints=full_states.player_hints[i],
+                num_failure_tokens=full_states.num_failure_tokens,
+                num_hint_tokens=full_states.num_hint_tokens,
+                tower_ranks=full_states.tower_ranks,
+                discard_pile=full_states.discard_pile,
+                current_player_id=full_states.current_player_id,
+            ))
+
+        return observations
+
+
     def get_current_player_observation(self) -> PlayerObservation:
         full_states = self.get_current_full_state()
 
@@ -225,6 +246,7 @@ class GameEngine:
 
     def auto_play(self):
 
+        # import pdb; pdb.set_trace()
         logging.info(self)
         max_num_rounds = (len(self.deck) + len(self.hint_tokens) + 1) // len(self.players) + 2
 

@@ -239,8 +239,11 @@ class HanabiEnv(gym.Env):
         self.game_engine.receive_action(player=self.game_engine.current_player, action=action)
         dense_reward = self.game_engine.hanabi_field.get_score() - prev_score
 
-        obs = self.game_engine.get_current_player_observation()
-        obs_array = self.observation_encoder.encode(obs)
+        obs = self.game_engine.get_all_players_observations()
+        obs_array = np.stack(
+            [self.observation_encoder.encode(o) for o in obs],
+            axis=0
+        )
         done = self.game_engine.is_terminal()
 
         if done:
@@ -253,8 +256,12 @@ class HanabiEnv(gym.Env):
             reward = sparse_reward
         else:
             reward = dense_reward
+        
+        info = {
+            "current_player_id": self.game_engine.current_player_id
+        }
 
-        return obs_array, reward, done, {}
+        return obs_array, reward, done, info
 
     def render(self, mode="human"):
         pass
