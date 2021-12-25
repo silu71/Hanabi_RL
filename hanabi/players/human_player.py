@@ -1,5 +1,5 @@
 from typing import List
-from hanabi.actions import Action
+from ..actions import Action
 
 from .player import Player, PlayerObservation
 

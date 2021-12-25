@@ -1,4 +1,4 @@
-from hanabi.gym import ActionEncoder
+from ..hanabi.gym import ActionEncoder
 
 
 def test_if_encode_and_decode_is_same():

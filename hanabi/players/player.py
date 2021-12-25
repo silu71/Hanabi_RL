@@ -1,8 +1,8 @@
 from typing import List, Optional, Dict
 from dataclasses import dataclass
 
-from hanabi.objects import Card, Color, Rank
-from hanabi.actions import Action
+from ..objects import Card, Color, Rank
+from ..actions import Action
 
 
 # @dataclass

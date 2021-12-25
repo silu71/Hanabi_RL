@@ -1,6 +1,6 @@
 from typing import Dict, List
-from hanabi.objects import Card, Color, Rank
-from hanabi.hanabi_field.hanabi_tower import HanabiTower
+from ..objects import Card, Color, Rank
+from .hanabi_tower import HanabiTower
 
 
 class HanabiField:

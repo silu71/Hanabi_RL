@@ -5,9 +5,9 @@ from gym import spaces
 from gym.utils import seeding
 
 
-from hanabi.game_engine import GameEngine, Player, InvalidActionError, PlayerObservation, Card, CardKnowledge, Rank, Color
-from hanabi.objects.deck import DEFAULT_NUM_CARDS
-from hanabi.actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
+from .game_engine import GameEngine, Player, InvalidActionError, PlayerObservation, Card, CardKnowledge, Rank, Color
+from .objects.deck import DEFAULT_NUM_CARDS
+from .actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
 
 
 class ObservationEncoder:
@@ -241,6 +241,12 @@ class HanabiEnv(gym.Env):
 
     def reset(self):
         self.game_engine.setup_game(self.players)
+        obs_all = self.game_engine.get_all_players_observations()
+        obs_array = np.stack(
+            [self.observation_encoder.encode(obs) for obs in obs_all],
+            axis=0
+        )
+        return obs_array
 
     def seed(self, seed: int = 1337):
         # Seed the random number generator
@@ -264,9 +270,9 @@ class HanabiEnv(gym.Env):
         self.game_engine.receive_action(player=self.game_engine.current_player, action=action)
         dense_reward = self.game_engine.hanabi_field.get_score() - prev_score
 
-        obs = self.game_engine.get_all_players_observations()
+        obs_all = self.game_engine.get_all_players_observations()
         obs_array = np.stack(
-            [self.observation_encoder.encode(o) for o in obs],
+            [self.observation_encoder.encode(obs) for obs in obs_all],
             axis=0
         )
         done = self.game_engine.is_terminal()

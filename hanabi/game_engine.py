@@ -2,7 +2,7 @@ from typing import List, Dict
 from dataclasses import dataclass
 import logging
 
-from hanabi.objects import (
+from .objects import (
     FailureTokensOnField,
     HintTokensOnField,
     Deck,
@@ -10,9 +10,9 @@ from hanabi.objects import (
     Color,
     Rank,
 )
-from hanabi.hanabi_field import HanabiField
-from hanabi.players import Player, CardKnowledge, PlayerObservation
-from hanabi.actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
+from .hanabi_field import HanabiField
+from .players import Player, CardKnowledge, PlayerObservation
+from .actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
 
 
 logger = logging.getLogger(__name__)

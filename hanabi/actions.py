@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from hanabi.objects import Color, Rank
+from .objects import Color, Rank
 
 
 class Action:
