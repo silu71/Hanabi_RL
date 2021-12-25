@@ -92,13 +92,13 @@ class ObservationEncoder:
         return np.concatenate([self._encode_card(card) for card in hand])
 
     def _encode_hand_knowledge(self, hand_knowledge: List[CardKnowledge]) -> np.ndarray:
-        return np.concatenate([self._encode_card(card_knowledge) for card_knowledge in hand_knowledge])
+        return np.concatenate([self._encode_card_knowledge(card_knowledge) for card_knowledge in hand_knowledge])
 
     def _encode_player_hands(self, player_hands: List[List[Card]]) -> np.ndarray:
         return np.concatenate([self._encode_hand(hand) for hand in player_hands])
 
     def _encode_player_hand_knowledges(self, player_hand_knowledges: List[List[CardKnowledge]]) -> np.ndarray:
-        return np.concatenate([self._encode_card_list(hand_knowledge) for hand_knowledge in player_hand_knowledges])
+        return np.concatenate([self._encode_hand_knowledge(hand_knowledge) for hand_knowledge in player_hand_knowledges])
 
     def _encode_player_index(self, player_index: int) -> np.ndarray:
         array = np.zeros(self.num_players)
@@ -121,7 +121,10 @@ class ObservationEncoder:
                 self._encode_player_index(observation.current_player_id),
                 np.array([observation.num_failure_tokens / self.max_num_failure_tokens]),
                 np.array([observation.num_hint_tokens / self.num_max_hint_tokens]),
-                np.array([observation.tower_ranks[self._color_list[i]].value for i in range(self.num_colors)]),
+                np.array([
+                    observation.tower_ranks[self._color_list[i]].value / self.max_rank
+                    for i in range(self.num_colors)
+                ]),
                 discard_pile_array,
             ]
         )
@@ -155,12 +158,15 @@ class ActionEncoder:
         elif isinstance(action, GetHintToken):
             return self.num_initial_cards + action.discard_card_index
         elif isinstance(action, GiveColorHint):
-            return self.num_initial_cards * 2 + (action.player_index + 1) * action.color.value
+            return (
+                self.num_initial_cards * 2
+                + action.player_index * self.num_colors + action.color.value
+            )
         elif isinstance(action, GiveRankHint):
             return (
                 self.num_initial_cards * 2
                 + (self.num_players - 1) * self.num_colors
-                + (action.player_index + 1) * action.rank.value
+                + action.player_index * self.max_rank + action.rank.value - 1
             )
         else:
             raise InvalidActionError(action)
@@ -168,7 +174,7 @@ class ActionEncoder:
     def decode(self, action_index: int) -> Action:
         if 0 <= action_index < self.num_initial_cards:
             return PlayCard(action_index)
-        elif self.num_initial_cards <= action_index <= self.num_initial_cards * 2:
+        elif self.num_initial_cards <= action_index < self.num_initial_cards * 2:
             return GetHintToken(action_index - self.num_initial_cards)
         elif (
             self.num_initial_cards * 2
@@ -179,8 +185,9 @@ class ActionEncoder:
             player_index, color_index = divmod(player_color_index, self.num_colors)
             return GiveColorHint(player_index=player_index, color=self._color_list[color_index])
         elif action_index < self.num_actions:
-            player_rank_index = action_index - (self.num_initial_cards * 2 + self.num_players * self.num_colors)
-            player_index, rank_index = divmod(player_rank_index, self.max_rank)
+            player_rank_index = action_index - (self.num_initial_cards * 2 + (self.num_players - 1) * self.num_colors)
+            player_index, rank_index_ = divmod(player_rank_index, self.max_rank)
+            rank_index = rank_index_ + 1
             return GiveRankHint(player_index=player_index, rank=self._rank_list[rank_index])
         else:
             raise ValueError(f"Action index is out of range: {action_index}.")
@@ -196,7 +203,6 @@ class HanabiEnv(gym.Env):
         max_num_failure_tokens: int = 3,
         max_rank: int = 5,
         num_colors: int = 5,
-        seed: int = 2,
         use_sparse_reward: bool = False,
     ):
         self.game_engine = GameEngine(
@@ -222,48 +228,70 @@ class HanabiEnv(gym.Env):
             num_players=num_players, num_initial_cards=num_initial_cards, max_rank=max_rank, num_colors=num_colors,
         )
 
-        self.players = [Player() for _ in range(num_players)]
-
         # Actions are discrete integer values
-        self.action_space = spaces.Discrete(self.action_encoder.num_actions)
-
-        self.observation_space = spaces.Box(
-            low=0, high=1.0, shape=(self.observation_encoder.encode_dim,), dtype="float"
+        self.action_space = spaces.MultiDiscrete(
+            [self.action_encoder.num_actions] * num_players
         )
 
-        # Initialize the RNG
-        self.seed(seed=seed)
-        # Initialize the state
-        self.reset()
+        self.observation_space = spaces.Tuple((
+            spaces.Box(
+                low=0, high=1,
+                shape=(num_players, self.observation_encoder.encode_dim),
+                dtype=np.float32
+            ),
+            spaces.Box(
+                low=0, high=1,
+                shape=(num_players, self.action_encoder.num_actions),
+                dtype=np.float32
+            )
+        ))
 
-        self._game_is_done = False
+        self.num_players = num_players
         self.use_sparse_reward = use_sparse_reward
+        self._game_is_done = None
+        self._prev_valid_actions = None
 
     def reset(self):
-        self.game_engine.setup_game(self.players)
+        players = [Player() for _ in range(self.num_players)]
+        self.game_engine.setup_game(players)
+
         obs_all = self.game_engine.get_all_players_observations()
         obs_array = np.stack(
             [self.observation_encoder.encode(obs) for obs in obs_all],
             axis=0
         )
-        return obs_array
+
+        self._game_is_done = False
+        valid_actions = self.get_valid_actions()
+        self._prev_valid_actions = valid_actions
+
+        return (obs_array, valid_actions)
 
     def seed(self, seed: int = 1337):
         # Seed the random number generator
         self.np_random, _ = seeding.np_random(seed)
         return [seed]
 
-    def get_valid_actions(self) -> List[int]:
-        self.game_engine.get_valid_actions()
+    def get_valid_actions(self) -> np.ndarray:
+        current_player_id = self.game_engine.current_player_id
+        valid_actions = self.game_engine.get_current_valid_actions()
 
-    def step(self, action_index: int):
+        array = np.zeros((self.num_players, self.action_encoder.num_actions))
+        for action in valid_actions:
+            action_index = self.action_encoder.encode(action)
+            array[current_player_id, action_index] = 1
+
+        return array
+
+    def step(self, actions: np.ndarray):
 
         if self._game_is_done:
             raise RuntimeError("Game is already done.")
 
+        action_index = actions[self.game_engine.current_player_id]
         action = self.action_encoder.decode(action_index)
-        valid_actions = self.game_engine.get_current_valid_actions()
-        if action not in valid_actions:
+
+        if self._prev_valid_actions[self.game_engine.current_player_id, action_index] == 0:
             raise InvalidActionError()
 
         prev_score = self.game_engine.hanabi_field.get_score()
@@ -275,6 +303,10 @@ class HanabiEnv(gym.Env):
             [self.observation_encoder.encode(obs) for obs in obs_all],
             axis=0
         )
+
+        valid_actions = self.get_valid_actions()
+        self._prev_valid_actions = valid_actions
+
         done = self.game_engine.is_terminal()
 
         if done:
@@ -287,12 +319,8 @@ class HanabiEnv(gym.Env):
             reward = sparse_reward
         else:
             reward = dense_reward
-        
-        info = {
-            "current_player_id": self.game_engine.current_player_id
-        }
 
-        return obs_array, reward, done, info
+        return (obs_array, valid_actions), reward, done, {}
 
     def render(self, mode="human"):
         pass

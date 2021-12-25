@@ -71,7 +71,6 @@ class GameEngine:
 
         self.discard_pile: List[Card] = []
 
-        self.turn = 0
         self.turn_since_deck_is_empty = 0
 
         self.players: List[Player] = None
@@ -241,8 +240,8 @@ class GameEngine:
         else:
             raise InvalidActionError(f"Invalid action: {action}")
 
-        self.turn += 1
         self.turn_since_deck_is_empty += int(self.deck.is_empty())
+        self.current_player_id = (self.current_player_id + 1) % len(self.players)
 
     def setup_game(self, players: List[Player]):
         self.reset()
@@ -251,14 +250,12 @@ class GameEngine:
         self.current_player_id = 0
 
     def auto_play(self):
-
-        # import pdb; pdb.set_trace()
         logging.info(self)
         max_num_rounds = (len(self.deck) + len(self.hint_tokens) + 1) // len(self.players) + 2
 
         for current_round in range(max_num_rounds):
             for current_player_id, player in enumerate(self.players):
-                self.current_player_id = current_player_id
+                assert self.current_player_id == current_player_id
 
                 valid_actions = self.get_valid_actions(
                     num_current_player_cards=len(player.hand), current_player_index=current_player_id
