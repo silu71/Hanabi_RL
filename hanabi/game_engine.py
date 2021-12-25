@@ -11,7 +11,7 @@ from hanabi.objects import (
     Rank,
 )
 from hanabi.hanabi_field import HanabiField
-from hanabi.players import Player, CardHint, PlayerObservation
+from hanabi.players import Player, CardKnowledge, PlayerObservation
 from hanabi.actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
 
 
@@ -25,7 +25,7 @@ class InvalidActionError(Exception):
 @dataclass
 class FullState:
     deck_size: int
-    player_hints: List[List[CardHint]]
+    player_knowledges: List[List[CardKnowledge]]
     player_hands: List[List[Card]]
     num_failure_tokens: int
     num_hint_tokens: int
@@ -34,12 +34,12 @@ class FullState:
     current_player_id: int
 
 
-def abs_to_rel_player_index(current_player_index: int, other_player_index: int, num_players: int) -> int:
-    return (other_player_index - current_player_index - 1) % num_players
+def abs_to_rel_player_index(player_index: int, other_player_index: int, num_players: int) -> int:
+    return (other_player_index - player_index - 1) % num_players
 
 
-def rel_to_abs_player_index(current_player_index: int, relative_player_index: int, num_players: int) -> int:
-    return (current_player_index + relative_player_index + 1) % num_players
+def rel_to_abs_player_index(player_index: int, relative_other_index: int, num_players: int) -> int:
+    return (relative_other_index + player_index + 1) % num_players
 
 
 class GameEngine:
@@ -107,7 +107,7 @@ class GameEngine:
                 if other_index == current_player_index:
                     continue
                 relative_other_index = abs_to_rel_player_index(
-                    current_player_index=current_player_index,
+                    player_index=current_player_index,
                     other_player_index=other_index,
                     num_players=len(self.players),
                 )
@@ -136,7 +136,7 @@ class GameEngine:
     def get_current_full_state(self) -> FullState:
         return FullState(
             deck_size=len(self.deck),
-            player_hints=[p.card_hints for p in self.players],
+            player_knowledges=[p.card_knowledges for p in self.players],
             player_hands=[p.hand for p in self.players],
             num_failure_tokens=self.failure_tokens.num_failure_tokens,
             num_hint_tokens=len(self.hint_tokens),
@@ -150,17 +150,20 @@ class GameEngine:
 
         observations = []
         for i in range(len(self.players)):
+            relative_current_index = abs_to_rel_player_index(
+                i, full_states.current_player_id, len(self.players)
+            )
             observations.append(PlayerObservation(
                 deck_size=full_states.deck_size,
                 # Note that the index in this list is relative to current_player_id
-                other_player_hints=full_states.player_hints[i + 1 :] + full_states.player_hints[:i],
+                other_player_knowledges=full_states.player_knowledges[i + 1 :] + full_states.player_knowledges[:i],
                 other_player_hands=full_states.player_hands[i + 1 :] + full_states.player_hands[:i],
-                current_player_hints=full_states.player_hints[i],
+                current_player_knowledges=full_states.player_knowledges[i],
                 num_failure_tokens=full_states.num_failure_tokens,
                 num_hint_tokens=full_states.num_hint_tokens,
                 tower_ranks=full_states.tower_ranks,
                 discard_pile=full_states.discard_pile,
-                current_player_id=full_states.current_player_id,
+                current_player_id=relative_current_index,
             ))
 
         return observations
@@ -170,17 +173,20 @@ class GameEngine:
         full_states = self.get_current_full_state()
 
         i = full_states.current_player_id
+        relative_current_index = abs_to_rel_player_index(
+            i, i, len(self.players)
+        )
         return PlayerObservation(
             deck_size=full_states.deck_size,
             # Note that the index in this list is relative to current_player_id
-            other_player_hints=full_states.player_hints[i + 1 :] + full_states.player_hints[:i],
+            other_player_knowledges=full_states.player_knowledges[i + 1 :] + full_states.player_knowledges[:i],
             other_player_hands=full_states.player_hands[i + 1 :] + full_states.player_hands[:i],
-            current_player_hints=full_states.player_hints[i],
+            current_player_knowledges=full_states.player_knowledges[i],
             num_failure_tokens=full_states.num_failure_tokens,
             num_hint_tokens=full_states.num_hint_tokens,
             tower_ranks=full_states.tower_ranks,
             discard_pile=full_states.discard_pile,
-            current_player_id=full_states.current_player_id,
+            current_player_id=relative_current_index,
         )
 
     def get_current_valid_actions(self) -> List[Action]:
@@ -217,7 +223,7 @@ class GameEngine:
             if not self.hint_tokens.is_able_to_use_token():
                 raise InvalidActionError("The number of hint tokens is empty.")
             other_player_index = rel_to_abs_player_index(
-                self.current_player_id, relative_player_index=action.player_index, num_players=len(self.players)
+                self.current_player_id, relative_other_index=action.player_index, num_players=len(self.players)
             )
 
             self.hint_tokens.use_token()
@@ -227,7 +233,7 @@ class GameEngine:
             if not self.hint_tokens.is_able_to_use_token():
                 raise InvalidActionError("The number of hint tokens is empty.")
             other_player_index = rel_to_abs_player_index(
-                self.current_player_id, relative_player_index=action.player_index, num_players=len(self.players)
+                self.current_player_id, relative_other_index=action.player_index, num_players=len(self.players)
             )
 
             self.hint_tokens.use_token()

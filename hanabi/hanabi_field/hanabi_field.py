@@ -24,7 +24,7 @@ class HanabiField:
     def get_score(self) -> int:
         total_score = 0
         for hanabi_tower in self.hanabi_towers.values():
-            total_score += hanabi_tower.top_card.rank.value
+            total_score += hanabi_tower.rank.value
         return total_score
 
     def __str__(self):

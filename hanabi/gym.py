@@ -5,7 +5,7 @@ from gym import spaces
 from gym.utils import seeding
 
 
-from hanabi.game_engine import GameEngine, Player, InvalidActionError, PlayerObservation, Card, CardHint, Rank, Color
+from hanabi.game_engine import GameEngine, Player, InvalidActionError, PlayerObservation, Card, CardKnowledge, Rank, Color
 from hanabi.objects.deck import DEFAULT_NUM_CARDS
 from hanabi.actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
 
@@ -31,6 +31,7 @@ class ObservationEncoder:
         self.num_colors = num_colors
 
         self._color_list = list(Color)
+        self._rank_list = list(Rank)
 
     @property
     def encode_dim(self) -> int:
@@ -39,6 +40,7 @@ class ObservationEncoder:
         other_player_hints_dim = self.player_hands_dim
         other_player_hands_dim = self.player_hands_dim
         current_player_hints_dim = self.hand_dim
+        current_player_index_dim = self.num_players
         num_failure_tokens_dim = 1
         num_hint_tokens_dim = 1
         tower_ranks_dim = self.num_colors
@@ -49,6 +51,7 @@ class ObservationEncoder:
             + other_player_hints_dim
             + other_player_hands_dim
             + current_player_hints_dim
+            + current_player_index_dim
             + num_failure_tokens_dim
             + num_hint_tokens_dim
             + tower_ranks_dim
@@ -63,23 +66,44 @@ class ObservationEncoder:
     def player_hands_dim(self) -> int:
         return (self.num_players - 1) * self.hand_dim
 
-    def _encode_card(self, card: Union[Card, CardHint]) -> np.ndarray:
+    def _encode_card(self, card: Card) -> np.ndarray:
         rank_array = np.zeros(self.max_rank)
         color_array = np.zeros(self.num_colors)
 
-        if card.rank is not None:
-            rank_array[card.rank.value - 1] = 1
+        rank_array[card.rank.value - 1] = 1
+        color_array[card.color.value] = 1
 
-        if card.color is not None:
-            color_array[card.color.value] = 1
+        return np.concatenate((rank_array, color_array))
+    
+    def _encode_card_knowledge(self, card_knoledge: CardKnowledge) -> np.ndarray:
+        rank_array = np.zeros(self.max_rank)
+        color_array = np.zeros(self.num_colors)
+
+        # exclude EMPTY rank
+        for r in self._rank_list[1:]:
+            rank_array[r.value - 1] = int(card_knoledge.rank_possibilities[r])
+
+        for c in self._color_list:
+            color_array[c.value] = int(card_knoledge.color_possibilities[c])
 
         return np.concatenate((rank_array, color_array))
 
-    def _encode_card_list(self, hand: List[Union[Card, CardHint]]) -> np.ndarray:
+    def _encode_hand(self, hand: List[Card]) -> np.ndarray:
         return np.concatenate([self._encode_card(card) for card in hand])
 
-    def _encode_player_hands(self, player_hands: List[List[Union[Card, CardHint]]]) -> np.ndarray:
-        return np.concatenate([self._encode_card_list(hand) for hand in player_hands])
+    def _encode_hand_knowledge(self, hand_knowledge: List[CardKnowledge]) -> np.ndarray:
+        return np.concatenate([self._encode_card(card_knowledge) for card_knowledge in hand_knowledge])
+
+    def _encode_player_hands(self, player_hands: List[List[Card]]) -> np.ndarray:
+        return np.concatenate([self._encode_hand(hand) for hand in player_hands])
+
+    def _encode_player_hand_knowledges(self, player_hand_knowledges: List[List[CardKnowledge]]) -> np.ndarray:
+        return np.concatenate([self._encode_card_list(hand_knowledge) for hand_knowledge in player_hand_knowledges])
+
+    def _encode_player_index(self, player_index: int) -> np.ndarray:
+        array = np.zeros(self.num_players)
+        array[player_index] = 1
+        return array
 
     def encode(self, observation: PlayerObservation) -> np.ndarray:
 
@@ -91,9 +115,10 @@ class ObservationEncoder:
         obs_array = np.concatenate(
             [
                 np.array([observation.deck_size / self.max_deck_size]),
-                self._encode_player_hands(observation.other_player_hints),
+                self._encode_player_hand_knowledges(observation.other_player_knowledges),
                 self._encode_player_hands(observation.other_player_hands),
-                self._encode_card_list(observation.current_player_hints),
+                self._encode_hand_knowledge(observation.current_player_knowledges),
+                self._encode_player_index(observation.current_player_id),
                 np.array([observation.num_failure_tokens / self.max_num_failure_tokens]),
                 np.array([observation.num_hint_tokens / self.num_max_hint_tokens]),
                 np.array([observation.tower_ranks[self._color_list[i]].value for i in range(self.num_colors)]),
