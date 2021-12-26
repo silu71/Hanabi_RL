@@ -4,10 +4,10 @@ from .hanabi_tower import HanabiTower
 
 
 class HanabiField:
-    def __init__(self, max_rank: int = 5, colors: List[Color] = None):
-        colors = colors or list(Color)
+    def __init__(self, max_rank: int = 5, num_colors: int = 5):
+        colors = Color.list(num_colors)
         self.hanabi_towers: Dict[Color, HanabiTower] = {
-            color: HanabiTower(color, max_rank=list(Rank)[max_rank]) for color in colors
+            color: HanabiTower(color, max_rank=Rank(max_rank)) for color in colors
         }
 
     def is_able_to_add(self, card: Card) -> bool:

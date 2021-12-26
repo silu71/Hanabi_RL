@@ -59,10 +59,9 @@ class GameEngine:
         self.max_rank = max_rank
         self.num_colors = num_colors
 
-        colors = list(Color)[:num_colors]
-        self.deck = Deck(max_rank=max_rank, colors=colors)
+        self.deck = Deck(max_rank=max_rank, num_colors=num_colors)
         self.max_deck_size = len(self.deck)
-        self.hanabi_field = HanabiField(max_rank=max_rank, colors=colors)
+        self.hanabi_field = HanabiField(max_rank=max_rank, num_colors=num_colors)
 
         self.failure_tokens = FailureTokensOnField(max_num_failure_tokens=max_num_failure_tokens)
         self.hint_tokens = HintTokensOnField(
@@ -111,10 +110,10 @@ class GameEngine:
                     num_players=len(self.players),
                 )
 
-                for color in list(Color):
+                for color in Color.list(self.num_colors):
                     if other_player.has_color(color):
                         valid_actions.append(GiveColorHint(player_index=relative_other_index, color=color))
-                for rank in list(Rank):
+                for rank in Rank.list(self.max_rank):
                     if other_player.has_rank(rank):
                         valid_actions.append(GiveRankHint(player_index=relative_other_index, rank=rank))
 
@@ -246,6 +245,9 @@ class GameEngine:
     def setup_game(self, players: List[Player]):
         self.reset()
         self.players = players
+        for player in players:
+            player.notify_game_info(self.max_rank, self.num_colors)
+
         self.distribute_cards()
         self.current_player_id = 0
 

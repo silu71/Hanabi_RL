@@ -30,16 +30,16 @@ class ObservationEncoder:
         self.max_rank = max_rank
         self.num_colors = num_colors
 
-        self._color_list = list(Color)
-        self._rank_list = list(Rank)
+        self._color_list = Color.list(num_colors)
+        self._rank_list = Rank.list(max_rank)
 
     @property
     def encode_dim(self) -> int:
 
         deck_size_dim = 1
-        other_player_hints_dim = self.player_hands_dim
+        other_player_knowledges_dim = self.player_hands_dim
         other_player_hands_dim = self.player_hands_dim
-        current_player_hints_dim = self.hand_dim
+        current_player_knowledges_dim = self.hand_dim
         current_player_index_dim = self.num_players
         num_failure_tokens_dim = 1
         num_hint_tokens_dim = 1
@@ -48,9 +48,9 @@ class ObservationEncoder:
 
         return (
             deck_size_dim
-            + other_player_hints_dim
+            + other_player_knowledges_dim
             + other_player_hands_dim
-            + current_player_hints_dim
+            + current_player_knowledges_dim
             + current_player_index_dim
             + num_failure_tokens_dim
             + num_hint_tokens_dim
@@ -79,8 +79,7 @@ class ObservationEncoder:
         rank_array = np.zeros(self.max_rank)
         color_array = np.zeros(self.num_colors)
 
-        # exclude EMPTY rank
-        for r in self._rank_list[1:]:
+        for r in self._rank_list:
             rank_array[r.value - 1] = int(card_knoledge.rank_possibilities[r])
 
         for c in self._color_list:
@@ -128,6 +127,17 @@ class ObservationEncoder:
                 discard_pile_array,
             ]
         )
+        if len(obs_array) != self.encode_dim:
+            print(self._encode_player_hand_knowledges(observation.other_player_knowledges).shape)
+            print(self._encode_player_hands(observation.other_player_hands).shape)
+            print(self._encode_hand_knowledge(observation.current_player_knowledges).shape)
+            print(self._encode_player_index(observation.current_player_id))
+            print(np.array([
+                    observation.tower_ranks[self._color_list[i]].value / self.max_rank
+                    for i in range(self.num_colors)
+                ]).shape)
+            print(discard_pile_array.shape)
+            import pdb; pdb.set_trace()
         assert len(obs_array) == self.encode_dim
         assert (0 <= obs_array).all() and (obs_array <= 1).all()
         return obs_array
@@ -140,8 +150,8 @@ class ActionEncoder:
         self.max_rank = max_rank
         self.num_colors = num_colors
 
-        self._color_list = list(Color)
-        self._rank_list = list(Rank)
+        self._color_list = Color.list(num_colors)
+        self._rank_list = Rank.list(max_rank)
 
     @property
     def num_actions(self) -> int:
@@ -186,8 +196,7 @@ class ActionEncoder:
             return GiveColorHint(player_index=player_index, color=self._color_list[color_index])
         elif action_index < self.num_actions:
             player_rank_index = action_index - (self.num_initial_cards * 2 + (self.num_players - 1) * self.num_colors)
-            player_index, rank_index_ = divmod(player_rank_index, self.max_rank)
-            rank_index = rank_index_ + 1
+            player_index, rank_index = divmod(player_rank_index, self.max_rank)
             return GiveRankHint(player_index=player_index, rank=self._rank_list[rank_index])
         else:
             raise ValueError(f"Action index is out of range: {action_index}.")

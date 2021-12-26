@@ -18,6 +18,10 @@ class Color(Enum):
     def __str__(self):
         return self.name[0]
 
+    @classmethod
+    def list(cls, num_colors):
+        return list(cls)[:num_colors]
+
 
 @total_ordering
 class Rank(Enum):
@@ -45,6 +49,11 @@ class Rank(Enum):
 
     def __str__(self):
         return str(self.value)
+
+    @classmethod
+    def list(cls, max_rank):
+        # exclude EMPTY rank
+        return list(cls)[1:max_rank+1]
 
 
 @dataclass

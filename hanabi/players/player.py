@@ -15,16 +15,17 @@ from ..actions import Action
 #     color_possibilities: Optional[Color] = None
 
 class CardKnowledge:
-    def __init__(self):
-        self.color_possibilities = {c: True for c in list(Color)}
-        # exclude EMPTY rank
-        self.rank_possibilities = {r: True for r in list(Rank)[1:]}
+    def __init__(self, max_rank, num_colors):
+        self._color_list = Color.list(num_colors)
+        self._rank_list = Rank.list(max_rank)
+        self.color_possibilities = {c: True for c in self._color_list}
+        self.rank_possibilities = {r: True for r in self._rank_list}
 
     def get_color_hint(self, positive: bool, color: Optional[Color]):
         if positive:
             # the color of this card is ***
             if color is not None:
-                for c in list(Color):
+                for c in self._color_list:
                     if c != color:
                         self.color_possibilities[c] = False
         else:
@@ -36,37 +37,16 @@ class CardKnowledge:
         if positive:
             # the rank of this card is ***
             if rank is not None:
-                for r in list(Rank)[1:]:
+                for r in self._rank_list:
                     if r != rank:
                         self.rank_possibilities[r] = 0
         else:
             # the rank of this card is not ***
             if rank is not None:
                 self.rank_possibilities[rank] = 0
-    
+
     def __repr__(self):
         return f"CardKnowlege(color={self.color_possibilities}, rank={self.rank_possibilities}"
-        # [self.color_possibilities[c] for c in list(Color)]
-    
-    # def must_be_color(self, color: Color):
-    #     for c in list(Color):
-    #         if (
-    #             (c == color and not self.color_possibilities[c]) or
-    #             (c != color and self.color_possibilities[c])
-    #         ):
-    #             return False
-
-    #     return True
-
-    # def must_be_rank(self, rank: Rank):
-    #     for r in list(Rank):
-    #         if (
-    #             (r == rank and not self.rank_possibilities[r]) or
-    #             (r != rank and self.rank_possibilities[r])
-    #         ):
-    #             return False
-
-    #     return True
 
 
 @dataclass
@@ -86,10 +66,16 @@ class Player:
     def __init__(self):
         self.hand: List[Card] = []
         self.card_knowledges: List[CardKnowledge] = []
+        self.max_rank = None
+        self.num_colors = None
+
+    def notify_game_info(self, max_rank: int, num_colors: int):
+        self.max_rank = max_rank
+        self.num_colors = num_colors
 
     def draw_card(self, card: Card):
         self.hand.append(card)
-        self.card_knowledges.append(CardKnowledge())
+        self.card_knowledges.append(CardKnowledge(self.max_rank, self.num_colors))
 
     def use_card(self, index: int) -> Card:
         if len(self.hand) <= index:
