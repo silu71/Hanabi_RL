@@ -2,7 +2,6 @@ from typing import Union, List
 import numpy as np
 import gym
 from gym import spaces
-from gym.utils import seeding
 
 
 from .game_engine import GameEngine, Player, InvalidActionError, PlayerObservation, Card, CardKnowledge, Rank, Color
@@ -284,9 +283,7 @@ class HanabiEnv(gym.Env):
         return (obs_array, valid_actions)
 
     def seed(self, seed: int = 1337):
-        # Seed the random number generator
-        self.np_random, _ = seeding.np_random(seed)
-        return [seed]
+        self.game_engine.seed(seed)
 
     def get_valid_actions(self) -> np.ndarray:
         current_player_id = self.game_engine.current_player_id

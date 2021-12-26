@@ -1,6 +1,7 @@
 from typing import List, Dict
 from dataclasses import dataclass
 import logging
+import numpy as np
 
 from .objects import (
     FailureTokensOnField,
@@ -56,38 +57,46 @@ class GameEngine:
         self.num_initial_cards = num_initial_cards
         self.num_initial_hint_tokens = num_initial_hint_tokens
         self.num_max_hint_tokens = num_max_hint_tokens
+        self.max_num_failure_tokens = max_num_failure_tokens
         self.max_rank = max_rank
         self.num_colors = num_colors
+        self.max_deck_size = max_rank * num_colors
 
-        self.deck = Deck(max_rank=max_rank, num_colors=num_colors)
-        self.max_deck_size = len(self.deck)
-        self.hanabi_field = HanabiField(max_rank=max_rank, num_colors=num_colors)
-
-        self.failure_tokens = FailureTokensOnField(max_num_failure_tokens=max_num_failure_tokens)
-        self.hint_tokens = HintTokensOnField(
-            initial_num_hint_tokens=num_initial_hint_tokens, max_num_hint_tokens=num_max_hint_tokens
-        )
-
-        self.discard_pile: List[Card] = []
-
-        self.turn_since_deck_is_empty = 0
-
+        self.deck: Deck = None
+        self.hanabi_field: HanabiField = None
+        self.failure_tokens: FailureTokensOnField = None
+        self.hint_tokens: HintTokensOnField = None
+        self.discard_pile: List[Card] = None
         self.players: List[Player] = None
-        self.current_player_id = None
-        self._prev_action_info = None
+        self.current_player_id: int = None
+        self.turn_since_deck_is_empty: int = None
+        self._prev_action_info: tuple = None
+        self.np_random: np.random.Generator = None
 
     @property
     def current_player(self) -> Player:
         return self.players[self.current_player_id]
 
+    def seed(self, seed: int):
+        self.np_random = np.random.default_rng(seed)
+
     def reset(self):
-        self.__init__(
-            num_initial_cards=self.num_initial_cards,
-            num_initial_hint_tokens=self.num_initial_hint_tokens,
-            num_max_hint_tokens=self.num_max_hint_tokens,
-            max_rank=self.max_rank,
-            num_colors=self.num_colors,
-        )
+        self.deck = Deck(max_rank=self.max_rank, num_colors=self.num_colors, np_random=self.np_random)
+        self.hanabi_field = HanabiField(max_rank=self.max_rank, num_colors=self.num_colors)
+        self.failure_tokens = FailureTokensOnField(self.max_num_failure_tokens)
+        self.hint_tokens = HintTokensOnField(self.num_initial_hint_tokens, self.num_max_hint_tokens)
+        self.discard_pile = []
+        self.current_player_id = 0
+        self.turn_since_deck_is_empty = 0
+        self._prev_action_info = None
+
+    def setup_game(self, players: List[Player]):
+        self.reset()
+        self.players = players
+        for player in players:
+            player.notify_game_info(self.max_rank, self.num_colors)
+
+        self.distribute_cards()
 
     def distribute_cards(self):
         for _ in range(self.num_initial_cards):
@@ -243,15 +252,6 @@ class GameEngine:
         self._prev_action_info = (self.current_player_id, action)
         self.turn_since_deck_is_empty += int(self.deck.is_empty())
         self.current_player_id = (self.current_player_id + 1) % len(self.players)
-
-    def setup_game(self, players: List[Player]):
-        self.reset()
-        self.players = players
-        for player in players:
-            player.notify_game_info(self.max_rank, self.num_colors)
-
-        self.distribute_cards()
-        self.current_player_id = 0
 
     def auto_play(self):
         logging.info(self)
