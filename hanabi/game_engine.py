@@ -74,6 +74,7 @@ class GameEngine:
 
         self.players: List[Player] = None
         self.current_player_id = None
+        self._prev_action_info = None
 
     @property
     def current_player(self) -> Player:
@@ -239,6 +240,7 @@ class GameEngine:
         else:
             raise InvalidActionError(f"Invalid action: {action}")
 
+        self._prev_action_info = (self.current_player_id, action)
         self.turn_since_deck_is_empty += int(self.deck.is_empty())
         self.current_player_id = (self.current_player_id + 1) % len(self.players)
 
@@ -273,20 +275,32 @@ class GameEngine:
 
     def __str__(self):
         string = ""
+
+        if self._prev_action_info is not None:
+            player_id, action = self._prev_action_info
+            string += f"\nPlayer {player_id}'s action: {action}\n\n"
+
         string += "==============================\n"
         string += f"Deck: {len(self.deck)}" + "\n"
-        string += f"Hint Tokens: [" + "○" * len(self.hint_tokens) + "]\n"
-        string += f"Failure Tokens: [" + "●" * len(self.failure_tokens) + "]\n"
+        string += f"Hint Tokens: [" + " o " * len(self.hint_tokens) + "]\n"
+        string += f"Failure Tokens: [" + " x " * len(self.failure_tokens) + "]\n"
         string += "\n"
 
-        string += "Hanabi Field:" + "\n"
-        string += str(self.hanabi_field) + "\n"
+        string += "Hanabi Field" + "\n"
+        string += str(self.hanabi_field)
+        string += "\n"
 
-        string += "Hand: \n"
+        string += "Hand\n"
         for index, player in enumerate(self.players):
-            string += f"Player {index}: \n"
+            string += f"Player {index}: "
             string += str([str(c) for c in player.hand]) + "\n"
-            string += "\n"
-        string += "==============================\n"
+        string += "\n"
+
+        string += "Knowledge\n"
+        for index, player in enumerate(self.players):
+            string += f"Player {index}: "
+            string += str([str(ck) for ck in player.card_knowledges]) + "\n"
+
+        string += "=============================="
 
         return string

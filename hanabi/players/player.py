@@ -36,8 +36,18 @@ class CardKnowledge:
             if rank is not None:
                 self.rank_possibilities[rank] = 0
 
-    def __repr__(self):
-        return f"CardKnowlege(color={self.color_possibilities}, rank={self.rank_possibilities}"
+    def __str__(self):
+        string = ""
+
+        for color, possible in self.color_possibilities.items():
+            if possible:
+                string += str(color)
+
+        for rank, possible in self.rank_possibilities.items():
+            if possible:
+                string += str(rank)
+
+        return string
 
 
 @dataclass

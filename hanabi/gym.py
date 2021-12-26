@@ -299,12 +299,12 @@ class HanabiEnv(gym.Env):
 
         return array
 
-    def step(self, actions: np.ndarray):
+    def step(self, action_indices: np.ndarray):
 
         if self._game_is_done:
             raise RuntimeError("Game is already done.")
 
-        action_index = actions[self.game_engine.current_player_id]
+        action_index = action_indices[self.game_engine.current_player_id]
         action = self.action_encoder.decode(action_index)
 
         if self._prev_valid_actions[self.game_engine.current_player_id, action_index] == 0:
@@ -339,4 +339,4 @@ class HanabiEnv(gym.Env):
         return (obs_array, valid_actions), reward, done, {}
 
     def render(self, mode="human"):
-        pass
+        return str(self.game_engine)

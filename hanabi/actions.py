@@ -28,7 +28,7 @@ class GiveColorHint(Action):
     color: Color
 
     def __str__(self):
-        return f"GiveColorHint({self.player_index}For{self.color.name})"
+        return f"GiveColorHint({self.player_index}, {self.color})"
 
 
 @dataclass
@@ -37,4 +37,4 @@ class GiveRankHint(Action):
     rank: Rank
 
     def __str__(self):
-        return f"RankHintTo({self.player_index}For{self.rank.name})"
+        return f"RankHintTo({self.player_index}, {self.rank})"
