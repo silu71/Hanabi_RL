@@ -145,17 +145,6 @@ class ObservationEncoder:
                 discard_pile_array,
             ]
         )
-        if len(obs_array) != self.encode_dim:
-            print(self._encode_player_hand_knowledges(observation.other_player_knowledges).shape)
-            print(self._encode_player_hands(observation.other_player_hands).shape)
-            print(self._encode_hand_knowledge(observation.current_player_knowledges).shape)
-            print(self._encode_player_index(observation.current_player_id))
-            print(np.array([
-                    observation.tower_ranks[self._color_list[i]].value / self.max_rank
-                    for i in range(self.num_colors)
-                ]).shape)
-            print(discard_pile_array.shape)
-            import pdb; pdb.set_trace()
         assert len(obs_array) == self.encode_dim
         assert (0 <= obs_array).all() and (obs_array <= 1).all()
         return obs_array

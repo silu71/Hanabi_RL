@@ -5,15 +5,6 @@ from ..objects import Card, Color, Rank
 from ..actions import Action
 
 
-# @dataclass
-# class CardHint:
-#     color: Optional[Color] = None
-#     rank: Optional[Rank] = None
-
-# @dataclass
-# class CardKnowledge:
-#     color_possibilities: Optional[Color] = None
-
 class CardKnowledge:
     def __init__(self, max_rank, num_colors):
         self._color_list = Color.list(num_colors)
