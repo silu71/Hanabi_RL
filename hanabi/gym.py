@@ -59,8 +59,12 @@ class ObservationEncoder:
         )
 
     @property
+    def card_dim(self) -> int:
+        return self.num_colors + self.max_rank
+
+    @property
     def hand_dim(self) -> int:
-        return self.num_initial_cards * (self.num_colors + self.max_rank)
+        return self.num_initial_cards * self.card_dim
 
     @property
     def player_hands_dim(self) -> int:
@@ -88,10 +92,24 @@ class ObservationEncoder:
         return np.concatenate((rank_array, color_array))
 
     def _encode_hand(self, hand: List[Card]) -> np.ndarray:
-        return np.concatenate([self._encode_card(card) for card in hand])
+        array = []
+        for i in range(self.num_initial_cards):
+            if i < len(hand):
+                array.append(self._encode_card(hand[i]))
+            else:
+                array.append(np.zeros(self.card_dim))
+
+        return np.concatenate(array)
 
     def _encode_hand_knowledge(self, hand_knowledge: List[CardKnowledge]) -> np.ndarray:
-        return np.concatenate([self._encode_card_knowledge(card_knowledge) for card_knowledge in hand_knowledge])
+        array = []
+        for i in range(self.num_initial_cards):
+            if i < len(hand_knowledge):
+                array.append(self._encode_card_knowledge(hand_knowledge[i]))
+            else:
+                array.append(np.zeros(self.card_dim))
+
+        return np.concatenate(array)
 
     def _encode_player_hands(self, player_hands: List[List[Card]]) -> np.ndarray:
         return np.concatenate([self._encode_hand(hand) for hand in player_hands])
