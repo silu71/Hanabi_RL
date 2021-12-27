@@ -12,29 +12,24 @@ class CardKnowledge:
         self.color_possibilities = {c: True for c in self._color_list}
         self.rank_possibilities = {r: True for r in self._rank_list}
 
-    def get_color_hint(self, positive: bool, color: Optional[Color]):
+    def get_color_hint(self, positive: bool, color: Color):
         if positive:
             # the color of this card is ***
-            if color is not None:
-                for c in self._color_list:
-                    if c != color:
-                        self.color_possibilities[c] = False
+            for c in self._color_list:
+                if c != color:
+                    self.color_possibilities[c] = False
         else:
-            # the color of this card is not ***
-            if color is not None:
-                self.color_possibilities[color] = False
+            self.color_possibilities[color] = False
 
-    def get_rank_hint(self, positive: bool, rank: Optional[int] = None):
+    def get_rank_hint(self, positive: bool, rank: Rank):
         if positive:
             # the rank of this card is ***
-            if rank is not None:
-                for r in self._rank_list:
-                    if r != rank:
-                        self.rank_possibilities[r] = 0
+            for r in self._rank_list:
+                if r != rank:
+                    self.rank_possibilities[r] = False
         else:
             # the rank of this card is not ***
-            if rank is not None:
-                self.rank_possibilities[rank] = 0
+            self.rank_possibilities[rank] = False
 
     def __str__(self):
         string = ""
@@ -55,12 +50,31 @@ class PlayerObservation:
     deck_size: int
     other_player_knowledges: List[List[CardKnowledge]]
     other_player_hands: List[List[Card]]
-    current_player_knowledges: List[CardKnowledge]
+    player_knowledge: List[CardKnowledge]
     num_failure_tokens: int
     num_hint_tokens: int
     tower_ranks: Dict[Color, Rank]
     discard_pile: List[Card]
     current_player_id: int
+
+    def __str__(self):
+        string = ""
+        string += f"deck_size: {self.deck_size}\n"
+        string += "other_player_knowledges\n"
+        for index, knowledge in enumerate(self.other_player_knowledges):
+            string += f"player {index}: {[str(ck) for ck in knowledge]}\n"
+        string += "other_player_hands\n"
+        for index, hand in enumerate(self.other_player_hands):
+            string += f"player {index}: {[str(c) for c in hand]}\n"
+        string += f"player_knowledge: {[str(ck) for ck in self.player_knowledge]}\n"
+        string += f"num_failure_tokens: {self.num_failure_tokens}\n"
+        string += f"num_hint_tokens: {self.num_hint_tokens}\n"
+        string += "tower_ranks\n"
+        for color, rank in self.tower_ranks.items():
+            string += f"{color}: {str(rank)}\n"
+        string += f"discard_pile: {[str(c) for c in self.discard_pile]}\n"
+        string += f"current_player_id: {self.current_player_id}"
+        return string
 
 
 class Player:

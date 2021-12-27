@@ -60,7 +60,6 @@ class GameEngine:
         self.max_num_failure_tokens = max_num_failure_tokens
         self.max_rank = max_rank
         self.num_colors = num_colors
-        self.max_deck_size = max_rank * num_colors
 
         self.deck: Deck = None
         self.hanabi_field: HanabiField = None
@@ -166,7 +165,7 @@ class GameEngine:
                 # Note that the index in this list is relative to current_player_id
                 other_player_knowledges=full_states.player_knowledges[i + 1 :] + full_states.player_knowledges[:i],
                 other_player_hands=full_states.player_hands[i + 1 :] + full_states.player_hands[:i],
-                current_player_knowledges=full_states.player_knowledges[i],
+                player_knowledge=full_states.player_knowledges[i],
                 num_failure_tokens=full_states.num_failure_tokens,
                 num_hint_tokens=full_states.num_hint_tokens,
                 tower_ranks=full_states.tower_ranks,
@@ -189,7 +188,7 @@ class GameEngine:
             # Note that the index in this list is relative to current_player_id
             other_player_knowledges=full_states.player_knowledges[i + 1 :] + full_states.player_knowledges[:i],
             other_player_hands=full_states.player_hands[i + 1 :] + full_states.player_hands[:i],
-            current_player_knowledges=full_states.player_knowledges[i],
+            player_knowledge=full_states.player_knowledges[i],
             num_failure_tokens=full_states.num_failure_tokens,
             num_hint_tokens=full_states.num_hint_tokens,
             tower_ranks=full_states.tower_ranks,
