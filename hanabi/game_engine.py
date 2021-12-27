@@ -1,8 +1,9 @@
 from typing import List, Dict
 from dataclasses import dataclass
 import logging
+import numpy as np
 
-from hanabi.objects import (
+from .objects import (
     FailureTokensOnField,
     HintTokensOnField,
     Deck,
@@ -10,9 +11,9 @@ from hanabi.objects import (
     Color,
     Rank,
 )
-from hanabi.hanabi_field import HanabiField
-from hanabi.players import Player, CardHint, PlayerObservation
-from hanabi.actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
+from .hanabi_field import HanabiField
+from .players import Player, CardKnowledge, PlayerObservation
+from .actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
 
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class InvalidActionError(Exception):
 @dataclass
 class FullState:
     deck_size: int
-    player_hints: List[List[CardHint]]
+    player_knowledges: List[List[CardKnowledge]]
     player_hands: List[List[Card]]
     num_failure_tokens: int
     num_hint_tokens: int
@@ -34,12 +35,12 @@ class FullState:
     current_player_id: int
 
 
-def abs_to_rel_player_index(current_player_index: int, other_player_index: int, num_players: int) -> int:
-    return (other_player_index - current_player_index - 1) % num_players
+def abs_to_rel_player_index(player_index: int, other_player_index: int, num_players: int) -> int:
+    return (other_player_index - player_index - 1) % num_players
 
 
-def rel_to_abs_player_index(current_player_index: int, relative_player_index: int, num_players: int) -> int:
-    return (current_player_index + relative_player_index + 1) % num_players
+def rel_to_abs_player_index(player_index: int, relative_other_index: int, num_players: int) -> int:
+    return (relative_other_index + player_index + 1) % num_players
 
 
 class GameEngine:
@@ -56,39 +57,45 @@ class GameEngine:
         self.num_initial_cards = num_initial_cards
         self.num_initial_hint_tokens = num_initial_hint_tokens
         self.num_max_hint_tokens = num_max_hint_tokens
+        self.max_num_failure_tokens = max_num_failure_tokens
         self.max_rank = max_rank
         self.num_colors = num_colors
 
-        colors = list(Color)[:num_colors]
-        self.deck = Deck(max_rank=max_rank, colors=colors)
-        self.max_deck_size = len(self.deck)
-        self.hanabi_field = HanabiField(max_rank=max_rank, colors=colors)
-
-        self.failure_tokens = FailureTokensOnField(max_num_failure_tokens=max_num_failure_tokens)
-        self.hint_tokens = HintTokensOnField(
-            initial_num_hint_tokens=num_initial_hint_tokens, max_num_hint_tokens=num_max_hint_tokens
-        )
-
-        self.discard_pile: List[Card] = []
-
-        self.turn = 0
-        self.turn_since_deck_is_empty = 0
-
+        self.deck: Deck = None
+        self.hanabi_field: HanabiField = None
+        self.failure_tokens: FailureTokensOnField = None
+        self.hint_tokens: HintTokensOnField = None
+        self.discard_pile: List[Card] = None
         self.players: List[Player] = None
-        self.current_player_id = None
+        self.current_player_id: int = None
+        self.turn_since_deck_is_empty: int = None
+        self._prev_action_info: tuple = None
+        self.np_random: np.random.Generator = None
 
     @property
     def current_player(self) -> Player:
         return self.players[self.current_player_id]
 
+    def seed(self, seed: int):
+        self.np_random = np.random.default_rng(seed)
+
     def reset(self):
-        self.__init__(
-            num_initial_cards=self.num_initial_cards,
-            num_initial_hint_tokens=self.num_initial_hint_tokens,
-            num_max_hint_tokens=self.num_max_hint_tokens,
-            max_rank=self.max_rank,
-            num_colors=self.num_colors,
-        )
+        self.deck = Deck(max_rank=self.max_rank, num_colors=self.num_colors, np_random=self.np_random)
+        self.hanabi_field = HanabiField(max_rank=self.max_rank, num_colors=self.num_colors)
+        self.failure_tokens = FailureTokensOnField(self.max_num_failure_tokens)
+        self.hint_tokens = HintTokensOnField(self.num_initial_hint_tokens, self.num_max_hint_tokens)
+        self.discard_pile = []
+        self.current_player_id = 0
+        self.turn_since_deck_is_empty = 0
+        self._prev_action_info = None
+
+    def setup_game(self, players: List[Player]):
+        self.reset()
+        self.players = players
+        for player in players:
+            player.notify_game_info(self.max_rank, self.num_colors)
+
+        self.distribute_cards()
 
     def distribute_cards(self):
         for _ in range(self.num_initial_cards):
@@ -107,15 +114,15 @@ class GameEngine:
                 if other_index == current_player_index:
                     continue
                 relative_other_index = abs_to_rel_player_index(
-                    current_player_index=current_player_index,
+                    player_index=current_player_index,
                     other_player_index=other_index,
                     num_players=len(self.players),
                 )
 
-                for color in list(Color):
+                for color in Color.list(self.num_colors):
                     if other_player.has_color(color):
                         valid_actions.append(GiveColorHint(player_index=relative_other_index, color=color))
-                for rank in list(Rank):
+                for rank in Rank.list(self.max_rank):
                     if other_player.has_rank(rank):
                         valid_actions.append(GiveRankHint(player_index=relative_other_index, rank=rank))
 
@@ -136,7 +143,7 @@ class GameEngine:
     def get_current_full_state(self) -> FullState:
         return FullState(
             deck_size=len(self.deck),
-            player_hints=[p.card_hints for p in self.players],
+            player_knowledges=[p.card_knowledges for p in self.players],
             player_hands=[p.hand for p in self.players],
             num_failure_tokens=self.failure_tokens.num_failure_tokens,
             num_hint_tokens=len(self.hint_tokens),
@@ -145,21 +152,48 @@ class GameEngine:
             current_player_id=self.current_player_id,
         )
 
+    def get_all_players_observations(self) -> List[PlayerObservation]:
+        full_states = self.get_current_full_state()
+
+        observations = []
+        for i in range(len(self.players)):
+            relative_current_index = abs_to_rel_player_index(
+                i, full_states.current_player_id, len(self.players)
+            )
+            observations.append(PlayerObservation(
+                deck_size=full_states.deck_size,
+                # Note that the index in this list is relative to current_player_id
+                other_player_knowledges=full_states.player_knowledges[i + 1 :] + full_states.player_knowledges[:i],
+                other_player_hands=full_states.player_hands[i + 1 :] + full_states.player_hands[:i],
+                player_knowledge=full_states.player_knowledges[i],
+                num_failure_tokens=full_states.num_failure_tokens,
+                num_hint_tokens=full_states.num_hint_tokens,
+                tower_ranks=full_states.tower_ranks,
+                discard_pile=full_states.discard_pile,
+                current_player_id=relative_current_index,
+            ))
+
+        return observations
+
+
     def get_current_player_observation(self) -> PlayerObservation:
         full_states = self.get_current_full_state()
 
         i = full_states.current_player_id
+        relative_current_index = abs_to_rel_player_index(
+            i, i, len(self.players)
+        )
         return PlayerObservation(
             deck_size=full_states.deck_size,
             # Note that the index in this list is relative to current_player_id
-            other_player_hints=full_states.player_hints[i + 1 :] + full_states.player_hints[:i],
+            other_player_knowledges=full_states.player_knowledges[i + 1 :] + full_states.player_knowledges[:i],
             other_player_hands=full_states.player_hands[i + 1 :] + full_states.player_hands[:i],
-            current_player_hints=full_states.player_hints[i],
+            player_knowledge=full_states.player_knowledges[i],
             num_failure_tokens=full_states.num_failure_tokens,
             num_hint_tokens=full_states.num_hint_tokens,
             tower_ranks=full_states.tower_ranks,
             discard_pile=full_states.discard_pile,
-            current_player_id=full_states.current_player_id,
+            current_player_id=relative_current_index,
         )
 
     def get_current_valid_actions(self) -> List[Action]:
@@ -196,7 +230,7 @@ class GameEngine:
             if not self.hint_tokens.is_able_to_use_token():
                 raise InvalidActionError("The number of hint tokens is empty.")
             other_player_index = rel_to_abs_player_index(
-                self.current_player_id, relative_player_index=action.player_index, num_players=len(self.players)
+                self.current_player_id, relative_other_index=action.player_index, num_players=len(self.players)
             )
 
             self.hint_tokens.use_token()
@@ -206,7 +240,7 @@ class GameEngine:
             if not self.hint_tokens.is_able_to_use_token():
                 raise InvalidActionError("The number of hint tokens is empty.")
             other_player_index = rel_to_abs_player_index(
-                self.current_player_id, relative_player_index=action.player_index, num_players=len(self.players)
+                self.current_player_id, relative_other_index=action.player_index, num_players=len(self.players)
             )
 
             self.hint_tokens.use_token()
@@ -214,23 +248,17 @@ class GameEngine:
         else:
             raise InvalidActionError(f"Invalid action: {action}")
 
-        self.turn += 1
+        self._prev_action_info = (self.current_player_id, action)
         self.turn_since_deck_is_empty += int(self.deck.is_empty())
-
-    def setup_game(self, players: List[Player]):
-        self.reset()
-        self.players = players
-        self.distribute_cards()
-        self.current_player_id = 0
+        self.current_player_id = (self.current_player_id + 1) % len(self.players)
 
     def auto_play(self):
-
         logging.info(self)
         max_num_rounds = (len(self.deck) + len(self.hint_tokens) + 1) // len(self.players) + 2
 
         for current_round in range(max_num_rounds):
             for current_player_id, player in enumerate(self.players):
-                self.current_player_id = current_player_id
+                assert self.current_player_id == current_player_id
 
                 valid_actions = self.get_valid_actions(
                     num_current_player_cards=len(player.hand), current_player_index=current_player_id
@@ -246,20 +274,32 @@ class GameEngine:
 
     def __str__(self):
         string = ""
+
+        if self._prev_action_info is not None:
+            player_id, action = self._prev_action_info
+            string += f"\nPlayer {player_id}'s action: {action}\n\n"
+
         string += "==============================\n"
         string += f"Deck: {len(self.deck)}" + "\n"
-        string += f"Hint Tokens: [" + "○" * len(self.hint_tokens) + "]\n"
-        string += f"Failure Tokens: [" + "●" * len(self.failure_tokens) + "]\n"
+        string += f"Hint Tokens: [" + " o " * len(self.hint_tokens) + "]\n"
+        string += f"Failure Tokens: [" + " x " * len(self.failure_tokens) + "]\n"
         string += "\n"
 
-        string += "Hanabi Field:" + "\n"
-        string += str(self.hanabi_field) + "\n"
+        string += "Hanabi Field" + "\n"
+        string += str(self.hanabi_field)
+        string += "\n"
 
-        string += "Hand: \n"
+        string += "Hand\n"
         for index, player in enumerate(self.players):
-            string += f"Player {index}: \n"
+            string += f"Player {index}: "
             string += str([str(c) for c in player.hand]) + "\n"
-            string += "\n"
-        string += "==============================\n"
+        string += "\n"
+
+        string += "Knowledge\n"
+        for index, player in enumerate(self.players):
+            string += f"Player {index}: "
+            string += str([str(ck) for ck in player.card_knowledges]) + "\n"
+
+        string += "=============================="
 
         return string

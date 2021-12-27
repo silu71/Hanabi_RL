@@ -2,8 +2,8 @@ from typing import List, Tuple
 import random
 
 from .player import Player, PlayerObservation
-from hanabi.objects import Card
-from hanabi.actions import Action, GetHintToken, PlayCard, GiveColorHint
+from ..objects import Card
+from ..actions import Action, GetHintToken, PlayCard, GiveColorHint
 
 
 def find_playable_card_for_other(observation: PlayerObservation) -> Tuple[int, Card]:
@@ -18,8 +18,9 @@ def find_playable_card_for_other(observation: PlayerObservation) -> Tuple[int, C
 class NaiveRuleBasedPlayer(Player):
     def choose_action(self, valid_actions: List[Action], observation: PlayerObservation) -> Action:
         # play a card following hints
-        for hand_idx, hint in enumerate(observation.current_player_hints):
-            if hint.color is not None and PlayCard(hand_idx) in valid_actions:
+        for hand_idx, knowledge in enumerate(observation.current_player_knowledges):
+            color_identified = (sum(knowledge.color_possibilities.values()) == 1)
+            if color_identified and PlayCard(hand_idx) in valid_actions:
                 return PlayCard(hand_idx)
 
         # tell other people playable card

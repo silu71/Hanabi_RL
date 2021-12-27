@@ -1,13 +1,13 @@
 from typing import Dict, List
-from hanabi.objects import Card, Color, Rank
-from hanabi.hanabi_field.hanabi_tower import HanabiTower
+from ..objects import Card, Color, Rank
+from .hanabi_tower import HanabiTower
 
 
 class HanabiField:
-    def __init__(self, max_rank: int = 5, colors: List[Color] = None):
-        colors = colors or list(Color)
+    def __init__(self, max_rank: int = 5, num_colors: int = 5):
+        colors = Color.list(num_colors)
         self.hanabi_towers: Dict[Color, HanabiTower] = {
-            color: HanabiTower(color, max_rank=list(Rank)[max_rank]) for color in colors
+            color: HanabiTower(color, max_rank=Rank(max_rank)) for color in colors
         }
 
     def is_able_to_add(self, card: Card) -> bool:
@@ -24,7 +24,7 @@ class HanabiField:
     def get_score(self) -> int:
         total_score = 0
         for hanabi_tower in self.hanabi_towers.values():
-            total_score += hanabi_tower.top_card.rank.value
+            total_score += hanabi_tower.rank.value
         return total_score
 
     def __str__(self):

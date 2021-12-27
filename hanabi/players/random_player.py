@@ -1,5 +1,5 @@
 from typing import List, Dict
-from hanabi.actions import Action
+from ..actions import Action
 import random
 
 from .player import Player, PlayerObservation

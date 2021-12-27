@@ -1,5 +1,5 @@
 from typing import Optional
-from hanabi.objects.card import Card, InvalidCardError, Color, Rank
+from ..objects.card import Card, InvalidCardError, Color, Rank
 
 
 class HanabiTower:
@@ -40,4 +40,4 @@ class HanabiTower:
         return self.top_card.rank == self.max_rank
 
     def __str__(self):
-        return f"{self.color.value}: {[card.rank.value for card in self.cards[1:]]}"
+        return f"{str(self.color)}: {[str(card.rank) for card in self.cards[1:]]}"
