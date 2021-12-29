@@ -125,7 +125,6 @@ class ObservationEncoder:
             return np.concatenate(array)
 
         def encode_tower_ranks(tower_ranks: Dict[Color, Rank]) -> np.ndarray:
-            # import pdb; pdb.set_trace()
             array = []
             for i in range(self.num_colors):
                 color = self._color_list[i]
@@ -446,23 +445,28 @@ class HanabiEnv(gym.Env):
         self.num_players = num_players
         self.use_sparse_reward = use_sparse_reward
         self._game_is_done = None
-        self._prev_valid_actions = None
+        self._valid_actions = None
 
-    def reset(self):
+    def _reset(self):
         players = [Player() for _ in range(self.num_players)]
         self.game_engine.setup_game(players)
 
+        self._game_is_done = False
+        valid_actions = self.get_valid_actions()
+        self._valid_actions = valid_actions
+
+    def _get_obs(self) -> np.ndarray:
         obs_all = self.game_engine.get_all_players_observations()
         obs_array = np.stack(
             [self.observation_encoder.encode(obs) for obs in obs_all],
             axis=0
         )
+        return obs_array
 
-        self._game_is_done = False
-        valid_actions = self.get_valid_actions()
-        self._prev_valid_actions = valid_actions
-
-        return (obs_array, valid_actions)
+    def reset(self):
+        self._reset()
+        obs_array = self._get_obs()
+        return obs_array, self._valid_actions
 
     def seed(self, seed: int = 1337):
         self.game_engine.seed(seed)
@@ -478,30 +482,28 @@ class HanabiEnv(gym.Env):
 
         return array
 
-    def step(self, action_indices: np.ndarray):
-
+    def _receive_action(self, action_indices: np.ndarray) -> float:
         if self._game_is_done:
             raise RuntimeError("Game is already done.")
 
         action_index = action_indices[self.game_engine.current_player_id]
         action = self.action_encoder.decode(action_index)
 
-        if self._prev_valid_actions[self.game_engine.current_player_id, action_index] == 0:
+        if self._valid_actions[self.game_engine.current_player_id, action_index] == 0:
             raise InvalidActionError()
 
         prev_score = self.game_engine.hanabi_field.get_score()
         self.game_engine.receive_action(player=self.game_engine.current_player, action=action)
         dense_reward = self.game_engine.hanabi_field.get_score() - prev_score
 
-        obs_all = self.game_engine.get_all_players_observations()
-        obs_array = np.stack(
-            [self.observation_encoder.encode(obs) for obs in obs_all],
-            axis=0
-        )
-
         valid_actions = self.get_valid_actions()
-        self._prev_valid_actions = valid_actions
+        self._valid_actions = valid_actions
 
+        return dense_reward
+
+    def step(self, action_indices: np.ndarray):
+        dense_reward = self._receive_action(action_indices)
+        obs_array = self._get_obs()
         done = self.game_engine.is_terminal()
 
         if done:
@@ -515,7 +517,7 @@ class HanabiEnv(gym.Env):
         else:
             reward = dense_reward
 
-        return (obs_array, valid_actions), reward, done, {}
+        return (obs_array, self._valid_actions), reward, done, {}
 
     def render(self, mode="human"):
         return str(self.game_engine)
