@@ -18,7 +18,7 @@ def find_playable_card_for_other(observation: PlayerObservation) -> Tuple[int, C
 class NaiveRuleBasedPlayer(Player):
     def choose_action(self, valid_actions: List[Action], observation: PlayerObservation) -> Action:
         # play a card following hints
-        for hand_idx, knowledge in enumerate(observation.current_player_knowledges):
+        for hand_idx, knowledge in enumerate(observation.player_knowledge):
             color_identified = (sum(knowledge.color_possibilities.values()) == 1)
             if color_identified and PlayCard(hand_idx) in valid_actions:
                 return PlayCard(hand_idx)
