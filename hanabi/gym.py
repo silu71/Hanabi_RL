@@ -125,7 +125,6 @@ class ObservationEncoder:
             return np.concatenate(array)
 
         def encode_tower_ranks(tower_ranks: Dict[Color, Rank]) -> np.ndarray:
-            # import pdb; pdb.set_trace()
             array = []
             for i in range(self.num_colors):
                 color = self._color_list[i]
@@ -492,7 +491,7 @@ class HanabiEnv(gym.Env):
 
         if self._valid_actions[self.game_engine.current_player_id, action_index] == 0:
             raise InvalidActionError()
-        
+
         prev_score = self.game_engine.hanabi_field.get_score()
         self.game_engine.receive_action(player=self.game_engine.current_player, action=action)
         dense_reward = self.game_engine.hanabi_field.get_score() - prev_score
