@@ -3,7 +3,13 @@ from .card import Card, Color, Rank
 import numpy as np
 
 
-DEFAULT_NUM_CARDS = {Rank.ONE: 3, Rank.TWO: 2, Rank.THREE: 2, Rank.FOUR: 2, Rank.FIVE: 1}
+def get_num_cards(rank: int, max_rank: int) -> int:
+    if rank == 1:
+        return 3
+    elif rank == max_rank:
+        return 1
+    else:
+        return 2
 
 
 class Deck:
@@ -19,7 +25,8 @@ class Deck:
         ranks = Rank.list(max_rank)
         for color in colors:
             for rank in ranks:
-                self.cards += [Card(color=color, rank=rank) for _ in range(DEFAULT_NUM_CARDS[rank])]
+                num_cards = get_num_cards(rank=rank.value, max_rank=max_rank)
+                self.cards += [Card(color=color, rank=rank) for _ in range(num_cards)]
 
         # shuffle cards
         if np_random is None:
