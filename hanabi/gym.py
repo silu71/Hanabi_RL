@@ -5,7 +5,7 @@ from gym import spaces
 
 
 from .game_engine import GameEngine, Player, InvalidActionError, PlayerObservation, Card, CardKnowledge, Rank, Color
-from .objects.deck import DEFAULT_NUM_CARDS
+from .objects.deck import get_num_cards
 from .actions import Action, PlayCard, GetHintToken, GiveColorHint, GiveRankHint
 
 
@@ -26,6 +26,9 @@ class ObservationEncoder:
         self.max_num_failure_tokens = max_num_failure_tokens
         self.max_rank = max_rank
         self.num_colors = num_colors
+        self.num_cards_sum = sum([
+            get_num_cards(r + 1, self.max_rank) for r in range(self.max_rank)
+        ])
 
         self._color_list = Color.list(num_colors)
         self._rank_list = Rank.list(max_rank)
@@ -40,7 +43,7 @@ class ObservationEncoder:
         num_failure_tokens_dim = self.max_num_failure_tokens
         num_hint_tokens_dim = self.num_max_hint_tokens
         tower_ranks_dim = self.num_colors * self.max_rank
-        discard_pile_dim = self.num_colors * sum([DEFAULT_NUM_CARDS[r] for r in self._rank_list])
+        discard_pile_dim = self.num_colors * self.num_cards_sum
         current_player_id_dim = self.num_players
 
         return (
@@ -69,7 +72,7 @@ class ObservationEncoder:
 
     @property
     def max_deck_size(self) -> int:
-        num_all = self.num_colors * sum(DEFAULT_NUM_CARDS.values())
+        num_all = self.num_colors * self.num_cards_sum
         num_distributed = self.num_initial_cards * self.num_players
         return num_all - num_distributed
 
@@ -141,9 +144,9 @@ class ObservationEncoder:
             array = []
             for i in range(self.max_rank):
                 rank = self._rank_list[i]
-                rank_num_cards = DEFAULT_NUM_CARDS[rank]
+                num_cards = get_num_cards(rank.value, self.max_rank)
                 for j in range(self.num_colors):
-                    array.append(encode_num(count_array[i][j], rank_num_cards))
+                    array.append(encode_num(count_array[i][j], num_cards))
 
             return np.concatenate(array)
 
@@ -251,13 +254,13 @@ class ObservationEncoder:
             offset = 0
             for i in range(self.max_rank):
                 rank = self._rank_list[i]
-                rank_num_cards = DEFAULT_NUM_CARDS[rank]
+                num_cards = get_num_cards(rank.value, self.max_rank)
                 for j in range(self.num_colors):
                     color = self._color_list[j]
-                    num = int(np.sum(discard_pile_array[offset : offset + rank_num_cards]))
+                    num = int(np.sum(discard_pile_array[offset : offset + num_cards]))
                     for _ in range(num):
                         discard_pile.append(Card(color=color, rank=rank))
-                    offset += rank_num_cards
+                    offset += num_cards
 
             return discard_pile
 
@@ -306,7 +309,7 @@ class ObservationEncoder:
         tower_ranks = decode_tower_ranks(tower_ranks_array)
         offset += tower_ranks_dim
 
-        discard_pile_dim = self.num_colors * sum(DEFAULT_NUM_CARDS.values())
+        discard_pile_dim = self.num_colors * self.num_cards_sum
         discard_pile_array = obs_array[offset : offset + discard_pile_dim]
         discard_pile = decode_discard_pile(discard_pile_array)
         offset += discard_pile_dim
