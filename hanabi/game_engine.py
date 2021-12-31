@@ -203,6 +203,7 @@ class GameEngine:
         )
 
     def receive_action(self, player: Player, action: Action):
+        self.turn_since_deck_is_empty += int(self.deck.is_empty())
 
         if isinstance(action, PlayCard):
             card = player.use_card(action.played_card_index)
@@ -249,7 +250,6 @@ class GameEngine:
             raise InvalidActionError(f"Invalid action: {action}")
 
         self._prev_action_info = (self.current_player_id, action)
-        self.turn_since_deck_is_empty += int(self.deck.is_empty())
         self.current_player_id = (self.current_player_id + 1) % len(self.players)
 
     def auto_play(self):
